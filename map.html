@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapping and Displaying Data</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+        .purpleair-label {
+            font-size: 12px;
+        }
+        .nowrap {
+            white-space: nowrap;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: white;
+            padding: 10px;
+            border: 2px solid #444;
+            border-radius: 5px;
+        }
+        .legend img {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="legend">
+        <img src="aqhilegend.png" alt="AQHI Legend">
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map centered on Regina
+        const map = L.map('map', { preferCanvas: true }).setView([50.452758, -104.616020], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Add the radar layer
+        async function addRadarLayer() {
+            const radarLayer = L.tileLayer.wms('https://geo.weather.gc.ca/geomet', {
+                layers: 'RADAR_1KM_RRAI',
+                format: 'image/png',
+                transparent: true,
+                attribution: '&copy; Environment and Climate Change Canada'
+            });
+            radarLayer.addTo(map);
+        }
+
+        function isDataOlderThanTwoHours(timestamp) {
+            const currentTime = new Date();
+            const twoHoursAgo = currentTime.getTime() - (2 * 60 * 60 * 1000);
+            return timestamp < twoHoursAgo;
+        }
+
+        // Fetch and process PurpleAir data with updated sensors
+        async function fetchPurpleAirData() {
+            const API_KEY = 'ED3E067C-0904-11ED-8561-42010A800005';
+            const sensorIds = ['152154', '193097', '193110', '218169']; // Updated sensor IDs
+            const sensorNames = ['NE Corner', 'Field 1', 'SW Corner', 'Field 2']; // Updated sensor names
+            const purpleAirUrl = `https://api.purpleair.com/v1/sensors?fields=last_seen,humidity,pm2.5_60minute,pm2.5_10minute&show_only=${sensorIds.join(',')}`;
+
+            function adjustPm25(pm25, humidity) {
+                let adjustedPm25 = pm25;
+                if (humidity < 30) {
+                    adjustedPm25 = pm25 / (1 + 0.24 / (100 / 30 - 1));
+                } else if (humidity > 70) {
+                    adjustedPm25 = pm25 / (1 + 0.24 / (100 / 70 - 1));
+                } else {
+                    adjustedPm25 = pm25 / (1 + 0.24 / (100 / humidity - 1));
+                }
+                return adjustedPm25;
+            }
+
+            try {
+                const response = await fetch(purpleAirUrl, {
+                    headers: {
+                        'X-API-Key': API_KEY
+                    }
+                });
+                const data = await response.json();
+                data.data.forEach((sensorData, index) => {
+                    const [sensorId, last_seen, humidity, pm2_5_60minute, pm2_5_10minute] = sensorData;
+                    const adjustedTimestamp = new Date(last_seen * 1000);
+
+                    let adjustedPm25_60minute = "N/A";
+                    let adjustedPm25_10minute = "N/A";
+
+                    if (!isDataOlderThanTwoHours(adjustedTimestamp.getTime())) {
+                        adjustedPm25_60minute = adjustPm25(pm2_5_60minute, humidity).toFixed(0);
+                        adjustedPm25_10minute = adjustPm25(pm2_5_10minute, humidity).toFixed(0);
+                    }
+
+                    const sensorName = sensorNames[index];
+
+                    const purpleAirDataDiv = document.getElementById(`purpleAirData${index + 1}`);
+                    purpleAirDataDiv.innerHTML = `
+                        <p>${sensorName} at ${isNaN(adjustedTimestamp.getTime()) ? 'N/A' : adjustedTimestamp.toLocaleString()}</p>
+                        <p>PM2.5 (past 1hr): ${adjustedPm25_60minute} µg/m³</p>
+                        <p>PM2.5 (past 10min): ${adjustedPm25_10minute} µg/m³</p>
+                    `;
+
+                    // Add the sensor to the map
+                    addPurpleAirSensor(sensorName, adjustedPm25_60minute, adjustedTimestamp.toLocaleString(), sensorLocations[sensorId].coords);
+                });
+            } catch (error) {
+                console.error('Error fetching PurpleAir data:', error);
+            }
+        }
+
+        // Function to add a PurpleAir sensor to the map
+        function addPurpleAirSensor(name, pm25, date, coords) {
+            // Determine the color of the marker based on PM2.5 levels
+            const color = pm25 == null || pm25 === '' || isNaN(Number(pm25)) ? 'gray' :
+                          pm25 <= 30 ? 'blue' :
+                          pm25 <= 60 ? 'orange' :
+                          pm25 <= 100 ? 'red' :
+                          'brown';
+                          
+            // Add a circle to represent the sensor location
+            L.circle(coords, {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.4,
+                radius: 200
+            }).addTo(map)
+            .bindPopup(`<b>Site:</b> ${name}<br><b>PM2.5 (past 1hr):</b> <span class="nowrap">${pm25}&nbsp;µg/m³</span><br><b>Date:</b> ${date}`);
+ 
+            // Create a custom icon for the marker
+            const icon = L.divIcon({
+                className: 'purpleair-label',
+                html: `<span class="nowrap">${pm25}&nbsp;µg/m³</span>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            // Add the marker to the map
+            L.marker(coords, {icon: icon}).addTo(map);
+        }
+
+        // Add radar layer and fetch PurpleAir data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addRadarLayer();
+            fetchPurpleAirData();
+        });
+    </script>
+</body>
+</html>
