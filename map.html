@@ -65,8 +65,8 @@
         // Fetch and process PurpleAir data with updated sensors
         async function fetchPurpleAirData() {
             const API_KEY = 'ED3E067C-0904-11ED-8561-42010A800005';
-            const sensorIds = ['152154', '193097', '193110', '218169']; // Updated sensor IDs
-            const sensorNames = ['NE Corner', 'Field 1', 'SW Corner', 'Field 2']; // Updated sensor names
+            const sensorIds = ['193091']; // Updated sensor IDs
+            const sensorNames = ['Rams 1']; // Updated sensor names
             const purpleAirUrl = `https://api.purpleair.com/v1/sensors?fields=last_seen,humidity,pm2.5_60minute,pm2.5_10minute&show_only=${sensorIds.join(',')}`;
 
             function adjustPm25(pm25, humidity) {
