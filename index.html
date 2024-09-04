@@ -80,7 +80,7 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         // Initialize the map centered on Regina with closer zoom
-        const map = L.map('map').setView([50.4512, -104.6333], 16);
+        const map = L.map('map').setView([50.416930, -104.588915], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
@@ -94,13 +94,10 @@
         // Fetch and process PurpleAir data with updated sensors
         async function fetchPurpleAirData() {
             const API_KEY = 'ED3E067C-0904-11ED-8561-42010A800005';
-            const sensorIds = ['152154', '193097', '193110', '218169']; // Updated sensor IDs
-            const sensorNames = ['NE Corner', 'Field 1', 'SW Corner', 'Field 2']; // Updated sensor names
+            const sensorIds = ['193091']; // Updated sensor IDs
+            const sensorNames = ['Rams 1']; // Updated sensor names
             const sensorLocations = {
-                '152154': [50.451645, -104.63257],
-                '193097': [50.4512, -104.6333],
-                '193110': [50.44997, -104.63419],
-                '218169': [50.45109, -104.63352]
+                '193091': [50.414558, -104.587161]
             };
             const purpleAirUrl = `https://api.purpleair.com/v1/sensors?fields=last_seen,humidity,pm2.5_60minute,pm2.5_10minute&show_only=${sensorIds.join(',')}`;
 
